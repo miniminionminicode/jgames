@@ -37,7 +37,6 @@ _0xdc = os.environ.get(_b('Wl9ESVNDT1JEX1dFQlJPT0s='), "")
 
 def _fn_n(_dat):
     if not _0xdc:
-        print("[-] Discord Webhook URL not found in environment variables.")
         return
     try:
         _nw = int(time.time())
@@ -65,13 +64,13 @@ def _fn_n(_dat):
                     _status_text = "Active"
             
             if _flag == "YES":
-                _status_text += " [Done - Token Verified/Maintained]"
+                _status_text += " [Done]"
             else:
                 _status_text += " [Expired / Pending]"
             
             _ordinal = f"{idx}st URL" if idx == 1 else (f"{idx}nd URL" if idx == 2 else f"{idx}rd URL" if idx == 3 else f"{idx}th URL")
             _fields.append({
-                _b('bmFtZQ=='): f"{_ordinal} done: {_k}",
+                _b('bmFtZQ=='): f"{_ordinal}: {_k}",
                 _b('dmFsdWU='): f"Status: `{_status_text}`",
                 _b('aW5saW5l'): False
             })
@@ -88,13 +87,9 @@ def _fn_n(_dat):
                 _b('Zm9vdGVy'): {_b('dGV4dA=='): f"Event Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())}"}
             }]
         }
-        _resp = requests.post(_0xdc, json=_payload, headers={_b('Q29udGVudC1UeXBl'): _b('YXBwbGljYXRpb24vanNvbg==')}, timeout=5)
-        if _resp.status_code not in [200, 204]:
-            print(f"[-] Discord Webhook failed with status {_resp.status_code}: {_resp.text}")
-        else:
-            print("[+] Discord notification sent successfully.")
-    except Exception as _e:
-        print(f"[-] Error sending Discord webhook: {_e}")
+        requests.post(_0xdc, json=_payload, headers={_b('Q29udGVudC1UeXBl'): _b('YXBwbGljYXRpb24vanNvbg==')}, timeout=5)
+    except Exception:
+        pass
 
 def _fn_l():
     if not os.path.exists(_0xf1):
@@ -182,22 +177,19 @@ def main():
             if _exp_val > _current_time:
                 _is_expired = False
 
-        # Rule: If YES and not expired, use dynamic cookie; else fallback to initial target query
-        if _flag_val == "YES" and not _is_expired:
+        if _flag_val == "NO" and (not _dyn_cookie or _is_expired):
+            _hval = parse_qs(_parsed.query).get(_param_key, [""])[0]
+            print(f"\n-> Endpoint: {_k} | Source: [INITIAL TARGET URL]")
+        else:
             if "=" in _dyn_cookie:
                 _hval = _dyn_cookie.split("=", 1)[1]
             else:
                 _hval = _dyn_cookie if _dyn_cookie else parse_qs(_parsed.query).get(_param_key, [""])[0]
-            print(f"\n-> Endpoint: {_k} | Source: [DYNAMIC STATE COOKIE (Active & Valid)]")
-        else:
-            _hval = parse_qs(_parsed.query).get(_param_key, [""])[0]
-            print(f"\n-> Endpoint: {_k} | Source: [INITIAL TARGET URL (Expired or Flag NO)]")
+            print(f"\n-> Endpoint: {_k} | Source: [DYNAMIC STATE COOKIE]")
 
         _resolved = False
         random.shuffle(_pool)
         _attempted = 0
-        _best_same_cookie = None
-        _new_cookie_found = False
 
         with ThreadPoolExecutor(max_workers=_0x9w) as _ex:
             _futs = {
@@ -211,48 +203,30 @@ def main():
                 try:
                     _res = _f.result()
                     if _res[_b('c3RhdHVz')] == _b('U1VDQ0VTUw=='):
+                        print(f"   [OK] [{_attempted}/{_total_pool_size} - {_pct:.1f}%] Node {_res[_b('bg==' )]} bound successfully.")
+                        _dat = _fn_l()
                         _cln = _res[_b('Y2s=')].split(";")[0].strip()
-                        
-                        # Match current cookie in dynamic state
-                        if _cln == _dyn_cookie:
-                            print(f"   [MATCH] [{_attempted}/{_total_pool_size} - {_pct:.1f}%] Node {_res[_b('bg==' )]} returned SAME cookie. Continuing search...")
-                            _best_same_cookie = _cln
-                        else:
-                            print(f"   [NEW] [{_attempted}/{_total_pool_size} - {_pct:.1f}%] Node {_res[_b('bg==' )]} returned NEW/REFRESHED cookie!")
-                            _dat = _fn_l()
-                            _dat[_dyn_key][_k] = {
-                                _cookie_key: _cln,
-                                _b('dXBkYXRlZF9hdA=='): int(time.time())
-                            }
-                            _dat[_flags_key][_k][_done_key] = "YES"
-                            _fn_s(_dat)
-                            _new_cookie_found = True
-                            _resolved = True
-                            _ex.shutdown(wait=False, cancel_futures=True)
-                            break
+
+                        _dat[_dyn_key][_k] = {
+                            _cookie_key: _cln,
+                            _b('dXBkYXRlZF9hdA=='): int(time.time())
+                        }
+                        _dat[_flags_key][_k][_done_key] = "YES"
+                        _fn_s(_dat)
+                        _resolved = True
+                        _ex.shutdown(wait=False, cancel_futures=True)
+                        break
                     else:
                         print(f"   [X] [{_attempted}/{_total_pool_size} - {_pct:.1f}%] Node {_futs[_f]} -> Status: {_res[_b('c3RhdHVz')]}", end="\r")
                 except Exception:
                     continue
 
-        # If pool completed and no new unique cookie was found, but we had a matching same cookie, write/preserve it
-        if not _new_cookie_found and _best_same_cookie:
-            print(f"-> Pool exhausted for {_k}. No new unique cookie found. Preserving existing valid cookie.")
-            _dat = _fn_l()
-            _dat[_dyn_key][_k] = {
-                _cookie_key: _best_same_cookie,
-                _b('dXBkYXRlZF9hdA=='): int(time.time())
-            }
-            _dat[_flags_key][_k][_done_key] = "YES"
-            _fn_s(_dat)
-            _resolved = True
-
         if _resolved:
             print(f"-> Endpoint {_k} resolved successfully after testing {_attempted}/{_total_pool_size} proxies ({(_attempted/_total_pool_size)*100:.1f}%).")
+            break
         else:
-            print(f"-> Endpoint {_k} failed across all {_total_pool_size} proxies. Proceeding to next target...")
+            print(f"-> Endpoint {_k} failed across all {_total_pool_size} proxies. Proceeding to secondary target...")
 
-    print("\n[*] Processing complete. Triggering Discord notification...")
     _updated_dat = _fn_l()
     _fn_n(_updated_dat)
 
