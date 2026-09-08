@@ -130,14 +130,37 @@ def main():
     _tot = len(_targets)
     _suc = 0
 
+    _current_time = int(time.time())
+    _flags_key = base64.b64decode('ZmxhZ3M=').decode()
+    _done_key = base64.b64decode('ZG9uZQ==').decode()
+    _dyn_key = base64.b64decode('ZHluYW1pY19zdGF0ZQ==').decode()
+    _cookie_key = base64.b64decode('bGFzdF93b3JraW5nX2Nvb2tpZQ==').decode()
     _param_key = base64.b64decode('X19oZG50bA==').decode()
 
     for _k, _tgt in _targets.items():
         _parsed = urlparse(_tgt)
         _burl = f"{_parsed.scheme}://{_parsed.netloc}{_parsed.path}"
-        _hval = parse_qs(_parsed.query).get(_param_key, [""])[0]
+        
+        _flag_val = _dat.get(_flags_key, {}).get(_k, {}).get(_done_key, "NO")
+        _dyn_cookie = _dat.get(_dyn_key, {}).get(_k, {}).get(_cookie_key, "")
+        
+        _is_expired = True
+        _m = re.search(r"exp=(\d+)", _dyn_cookie)
+        if _m:
+            _exp_val = int(_m.group(1))
+            if _exp_val > _current_time:
+                _is_expired = False
 
-        print(f"-> Processing Endpoint: {_k}")
+        if _flag_val == "NO" and (not _dyn_cookie or _is_expired):
+            _hval = parse_qs(_parsed.query).get(_param_key, [""])[0]
+            print(f"-> Endpoint {_k}: Flag is OFF and cookie is empty/expired. Falling back to initial target query parameter.")
+        else:
+            if "=" in _dyn_cookie:
+                _hval = _dyn_cookie.split("=", 1)[1]
+            else:
+                _hval = _dyn_cookie if _dyn_cookie else parse_qs(_parsed.query).get(_param_key, [""])[0]
+            print(f"-> Endpoint {_k}: Using dynamic state cookie value.")
+
         _resolved = False
         random.shuffle(_pool)
 
@@ -154,15 +177,10 @@ def main():
                         print(f"   [OK] Node {_res['n']} bound successfully.")
                         _dat = _fn_l()
                         _cln = _res["ck"].split(";")[0].strip()
-                        _dyn_key = base64.b64decode('ZHluYW1pY19zdGF0ZQ==').decode()
-                        _cookie_key = base64.b64decode('bGFzdF93b3JraW5nX2Nvb2tpZQ==').decode()
-                        _time_key = base64.b64decode('dXBkYXRlZF9hdA==').decode()
-                        _flags_key = base64.b64decode('ZmxhZ3M=').decode()
-                        _done_key = base64.b64decode('ZG9uZQ==').decode()
 
                         _dat[_dyn_key][_k] = {
                             _cookie_key: _cln,
-                            _time_key: int(time.time())
+                            base64.b64decode('dXBkYXRlZF9hdA==').decode(): int(time.time())
                         }
                         _dat[_flags_key][_k][_done_key] = "YES"
                         _fn_s(_dat)
