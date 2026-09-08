@@ -1,8 +1,9 @@
 name: Automated State Synchronization Loop
 
 on:
-  
   workflow_dispatch:
+  schedule:
+    - cron: '0 */3 * * *'
 
 jobs:
   execute-sync:
@@ -29,17 +30,16 @@ jobs:
 
     - name: Install Network Request Dependencies
       run: pip install requests
+      
     - name: Execute Core Network Cycle
       env:
         Z_UA: ${{ secrets.Z_UA }}
         Z_SOURCES: ${{ secrets.Z_SOURCES }}
         Z_DISCORD_WEBHOOK: ${{ secrets.Z_DISCORD_WEBHOOK }}
       run: python main.py
+      
     - name: Relocate Updated Metadata Payload
       run: cp ./the_c.json storage_dir/the_c.json
-      
-
-      
 
     - name: Commit and Push Dynamic Manifest Sync Changes
       working-directory: storage_dir
