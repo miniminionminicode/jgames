@@ -223,9 +223,8 @@ def main():
 
         if _resolved:
             print(f"-> Endpoint {_k} resolved successfully after testing {_attempted}/{_total_pool_size} proxies ({(_attempted/_total_pool_size)*100:.1f}%).")
-            break
         else:
-            print(f"-> Endpoint {_k} failed across all {_total_pool_size} proxies. Proceeding to secondary target...")
+            print(f"-> Endpoint {_k} failed across all {_total_pool_size} proxies. Proceeding to next target...")
 
     _updated_dat = _fn_l()
     _fn_n(_updated_dat)
