@@ -4,108 +4,86 @@ import json
 import random
 import os
 import requests
+from urllib.parse import urlparse, parse_qs
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 
-A_FILE = "the_c.json"
+X_FL = "the_c.json"
 
-A_UA = os.environ.get("Z_UA", "Mozilla/5.0")
+X_UA = os.environ.get("Z_UA", "Mozilla/5.0")
 try:
-    A_SRCS = json.loads(os.environ.get("Z_SOURCES", "[]"))
+    X_SC = json.loads(os.environ.get("Z_SOURCES", "[]"))
 except Exception:
-    A_SRCS = []
+    X_SC = []
 
-A_HD = {"User-Agent": A_UA}
-A_WK = 100  
-A_TM = 5
+X_HD = {"User-Agent": X_UA}
+X_WK = 100  
+X_TM = 5
 
-p_lk = Lock()
-f_lk = Lock()
+l_p = Lock()
+l_f = Lock()
 
-st = {
-    "c": 0,
-    "b": 0,
-    "f": 0,
-    "s": 0
-}
-A_DISC = os.environ.get("Z_DISCORD_WEBHOOK", "")
+X_DS = os.environ.get("Z_DISCORD_WEBHOOK", "")
 
-def notify_discord(success_count, total_count):
+def x_dsc(s_cnt, t_cnt):
     """Failsafe payload delivery agent: ignores errors silently"""
-    if not A_DISC:
+    if not X_DS:
         return
     try:
-        data = load_a()
-        max_exp = 0
-        now = int(time.time())
+        dat = x_lod()
+        mx_e = 0
+        nw = int(time.time())
         
-        for k, v in data.get("dynamic_state", {}).items():
-            cookie_str = v.get("last_working_cookie", "")
-            match = re.search(r"exp=(\d+)", cookie_str)
-            if match:
-                exp_val = int(match.group(1))
-                if exp_val > max_exp:
-                    max_exp = exp_val
+        for k, v in dat.get("dynamic_state", {}).items():
+            c_str = v.get("last_working_cookie", "")
+            m = re.search(r"exp=(\d+)", c_str)
+            if m:
+                e_val = int(m.group(1))
+                if e_val > mx_e:
+                    mx_e = e_val
                     
-        time_status = "Unknown"
-        if max_exp > now:
-            time_status = f"VALID (expires in {fmt_t(max_exp - now)})"
-        elif max_exp > 0:
-            time_status = f"EXPIRED ({fmt_t(now - max_exp)} ago)"
+        t_st = "Unknown"
+        if mx_e > nw:
+            t_st = f"VALID (expires in {x_fmt(mx_e - nw)})"
+        elif mx_e > 0:
+            t_st = f"EXPIRED ({x_fmt(nw - mx_e)} ago)"
 
-        status_flag = "🟢 SUCCESS" if success_count == total_count else "🔴 ATTENTION"
+        flg_st = "🟢 SUCCESS" if s_cnt > 0 else "🔴 ATTENTION"
         
         payload = {
             "username": "Matrix Synchronization Bot",
             "embeds": [{
-                "title": f"{status_flag} - Sync Process Complete",
-                "color": 3066993 if success_count == total_count else 15158332,
+                "title": f"{flg_st} - Sync Process Complete",
+                "color": 3066993 if s_cnt > 0 else 15158332,
                 "fields": [
-                    {"name": "Execution Summary", "value": f"`{success_count} / {total_count}` successfully rotated.", "inline": True},
-                    {"name": "Ecosystem Baseline", "value": f"Latest Window: `{time_status}`", "inline": False}
+                    {"name": "Execution Summary", "value": f"`{s_cnt} / {t_cnt}` target successfully parsed.", "inline": True},
+                    {"name": "Ecosystem Baseline", "value": f"Latest Window: `{t_st}`", "inline": False}
                 ],
                 "footer": {"text": f"Event Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())}"}
             }]
         }
-        requests.post(A_DISC, json=payload, headers={"Content-Type": "application/json"}, timeout=5)
+        requests.post(X_DS, json=payload, headers={"Content-Type": "application/json"}, timeout=5)
     except Exception:
         pass
 
-def load_a():
-    if not os.path.exists(A_FILE):
+def x_lod():
+    if not os.path.exists(X_FL):
         exit(1)
     try:
-        with open(A_FILE, "r") as f:
+        with open(X_FL, "r") as f:
             return json.load(f)
     except Exception:
         exit(1)
 
-def save_a(data):
-    with f_lk:
-        with open(A_FILE, "w") as f:
-            json.dump(data, f, indent=2)
+def x_sav(dat):
+    with l_f:
+        with open(X_FL, "w") as f:
+            json.dump(dat, f, indent=2)
 
-def build_x(k, data):
-    tgt = data["initial_targets"].get(k)
-    if not tgt:
-        return None, None
-        
-    flg = data["flags"].get(k, {}).get("done", "NO")
-    dyn = data["dynamic_state"].get(k, {})
-    lst = dyn.get("last_working_cookie", "")
-    
-    base = tgt.split("?")[0]
-    hd = A_HD.copy()
-
-    if flg == "YES" and lst:
-        return f"{base}?{lst}", hd
-        
-    return tgt, hd
-
-def gather_n():
+def x_gth():
     res = []
     ptrn = re.compile(r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]{2,5}\b')
-    for src in A_SRCS:
+    for src in X_SC:
         try:
             r = requests.get(src, timeout=6)
             if r.status_code == 200:
@@ -114,35 +92,19 @@ def gather_n():
             continue
     return list(dict.fromkeys(res))
 
-def exec_w(n, k, url, hd, rslv):
-    if k in rslv:
-        return {"status": "SKIPPED", "k": k}
-
+def x_ex(n, b_url, h_val):
     px = {"http": f"http://{n}", "https": f"http://{n}"}
+    cks = {"hdntl": h_val} if h_val else {}
     try:
         with requests.Session() as s:
-            resp = s.get(url, headers=hd, proxies=px, timeout=A_TM)
+            resp = s.get(b_url, headers=X_HD, cookies=cks, proxies=px, timeout=X_TM)
             if resp.status_code == 200:
-                ck = resp.headers.get("Set-Cookie")
-                if ck:
-                    return {"status": "SUCCESS", "k": k, "n": n, "ck": ck}
-                return {"status": "NO_VAL", "k": k, "n": n}
-            return {"status": "BLOCKED", "k": k, "n": n}
+                return {"status": "SUCCESS", "n": n}
+            return {"status": "BLOCKED", "n": n}
     except Exception:
-        return {"status": "FAILED", "k": k, "n": n}
+        return {"status": "FAILED", "n": n}
 
-def sync_m(k, ck):
-    data = load_a()
-    cln = ck.split(";")[0].strip()
-    
-    data["dynamic_state"][k] = {
-        "last_working_cookie": cln,
-        "updated_at": int(time.time())
-    }
-    data["flags"][k]["done"] = "YES"
-    save_a(data)
-
-def fmt_t(s):
+def x_fmt(s):
     h, r = divmod(s, 3600)
     m, r_s = divmod(r, 60)
     parts = []
@@ -152,60 +114,57 @@ def fmt_t(s):
     return " ".join(parts)
     
 def main():
-    data = load_a()
-    pool = gather_n()
+    dat = x_lod()
+    pool = x_gth()
 
     if not pool:
         return
 
-    active = {}
-    for k in data["initial_targets"].keys():
-        url, hd = build_x(k, data)
-        if url:
-            active[k] = {"url": url, "hd": hd}
+    targets = dat.get("initial_targets", {})
+    total_targets = len(targets)
+    success_count = 0
 
-    rslv = set()
-    tasks = []
-    for k, info in active.items():
-        for n in pool:
-            tasks.append((n, k, info["url"], info["hd"]))
-            
-    random.shuffle(tasks)
-    total = len(tasks)
+    for k, tgt in targets.items():
+        parsed = urlparse(tgt)
+        b_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        h_val = parse_qs(parsed.query).get("__hdntl", [""])[0]
 
-    with ThreadPoolExecutor(max_workers=A_WK) as ex:
-        futures = {
-            ex.submit(exec_w, t[0], t[1], t[2], t[3], rslv): t 
-            for t in tasks
-        }
+        print(f"-> Testing Target: {k}")
+        target_resolved = False
+        random.shuffle(pool)
 
-        for f in as_completed(futures):
-            _, k, _, _ = futures[f]
-            if k in rslv:
-                continue
+        with ThreadPoolExecutor(max_workers=X_WK) as ex:
+            futures = {
+                ex.submit(x_ex, n, b_url, h_val): n 
+                for n in pool
+            }
 
-            try:
-                res = f.result()
-                status = res["status"]
-                
-                with p_lk:
-                    st["c"] += 1
-                    if status == "SUCCESS":
-                        st["s"] += 1
-                        rslv.add(k)
-                        sync_m(k, res["ck"])
+            for f in as_completed(futures):
+                try:
+                    res = f.result()
+                    if res["status"] == "SUCCESS":
+                        print(f"   [SUCCESS] {res['n']} worked for {k}")
+                        dat = x_lod()
+                        dat["dynamic_state"][k] = {
+                            "when_working": f"hdntl={h_val}",
+                            "updated_at": int(time.time())
+                        }
+                        dat["flags"][k]["done"] = "YES"
+                        x_sav(dat)
+                        success_count += 1
+                        target_resolved = True
+                        ex.shutdown(wait=False, cancel_futures=True)
+                        break
+                except Exception:
+                    continue
 
-                    pct = (st["c"] / total) * 100
-                    print(f"[{pct:.1f}%] Matrix Processing Loop -> Status Sync: {len(rslv)}/{len(active)} | Op Count: {st['c']}".ljust(85), end="\r")
+        if target_resolved:
+            print(f"-> Target {k} resolved successfully. Halting subsequent checks.")
+            break
+        else:
+            print(f"-> Target {k} failed or returned non-200. Proceeding to secondary target...")
 
-            except Exception:
-                continue
-            if len(rslv) == len(active):
-                ex.shutdown(wait=False, cancel_futures=True)
-                break
-
-    print()
-    notify_discord(len(rslv), len(active))
+    x_dsc(success_count, total_targets)
 
 if __name__ == "__main__":
     main()
