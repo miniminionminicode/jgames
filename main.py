@@ -26,7 +26,10 @@ if not _0x5c:
     except Exception:
         _0x5c = []
 
-_0x1h = {_b('VXNlci1BZ2VudA=='): _0xa1}
+_0x1h = {
+    _b('VXNlci1BZ2VudA=='): _0xa1,
+    _b('UmVmZXJlcg=='): f"{_0xa1}/"
+}
 _0x9w = 100  
 _0x4t = 5
 
