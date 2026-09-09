@@ -26,10 +26,14 @@ if not _0x5c:
     except Exception:
         _0x5c = []
 
+_0x_origin = os.environ.get(_b('Wl9PUklHSU4='), '')
+
 _0x1h = {
-    _b('VXNlci1BZ2VudA=='): _0xa1,
-    _b('UmVmZXJlcg=='): f"{_0xa1}/"
+    _b('VXNlci1BZ2VudA=='): _0xa1
 }
+if _0x_origin:
+    _0x1h[_b('T3JpZ2lu')] = _0x_origin     
+    _0x1h[_b('UmVmZXJlcg==')] = f"{_0x_origin}/"
 _0x9w = 100  
 _0x4t = 5
 
@@ -228,9 +232,7 @@ def main():
             print(f"-> Endpoint {_k} resolved successfully after testing {_attempted}/{_total_pool_size} proxies ({(_attempted/_total_pool_size)*100:.1f}%).")
         else:
             print(f"-> Endpoint {_k} failed across all {_total_pool_size} proxies. Proceeding to next target...")
-
     _updated_dat = _fn_l()
     _fn_n(_updated_dat)
-
 if __name__ == "__main__":
     main()
