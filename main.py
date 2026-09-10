@@ -5,12 +5,17 @@ import random
 import os
 import base64
 import requests
+from datetime import datetime, timezone, timedelta
 from urllib.parse import urlparse, parse_qs
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 
 def _b(s):
     return base64.b64decode(s.encode()).decode()
+
+def _get_ist_time():
+    ist_offset = timezone(timedelta(hours=5, minutes=30))
+    return datetime.now(ist_offset).strftime('%Y-%m-%d %H:%M:%S IST')
 
 _0xf1 = _b('dGhlX2MuanNvbg==')
 
@@ -181,9 +186,8 @@ def main():
         else:
             _ck_name = "__hdntl"
 
-        # URL handling logic
         if "Latest" in _k:
-            _burl = _tgt  
+            _burl = _tgt
         else:
             _burl = f"{_parsed.scheme}://{_parsed.netloc}{_parsed.path}"
 
@@ -226,12 +230,22 @@ def main():
                         print(f"    [OK] [{_attempted}/{_total_pool_size} - {_pct:.1f}%] Node {_res[_b('bg==' )]} bound successfully.")
                         _dat = _fn_l()
                         _cln = _res[_b('Y2s=')].split(";")[0].strip()
+                        
+                        old_cookie = _dat[_dyn_key][_k].get(_cookie_key, "")
+                        if _cln == old_cookie:
+                            success = False
+                            reason = "Same cookie as previous working state"
+                        else:
+                            success = True
+                            reason = "Successfully resolved via proxy"
 
                         _dat[_dyn_key][_k] = {
                             _cookie_key: _cln,
-                            _b('dXBkYXRlZF9hdA=='): int(time.time())
+                            "updated_at": _get_ist_time(),
+                            "success": success,
+                            "reason": reason
                         }
-                        _dat[_flags_key][_k][_done_key] = "YES"
+                        _dat[_flags_key][_k][_done_key] = "YES" if success else "NO"
                         _fn_s(_dat)
                         _resolved = True
                         _ex.shutdown(wait=False, cancel_futures=True)
@@ -241,10 +255,29 @@ def main():
                 except Exception:
                     continue
 
-        if _resolved:
-            print(f"-> Endpoint {_k} resolved successfully after testing {_attempted}/{_total_pool_size} proxies ({(_attempted/_total_pool_size)*100:.1f}%).")
+        if not _resolved:
+            exp_match = re.search(r"exp=(\d+)", _tgt) or re.search(r"exp=(\d+)", _hval)
+            if exp_match:
+                exp_val = int(exp_match.group(1))
+                if _current_time > exp_val:
+                    reason = f"Failed across all proxies. Requested cookie was expired {_fn_t(_current_time - exp_val)} ago"
+                else:
+                    reason = f"Failed across all proxies. Requested cookie is valid, but all proxies blocked/failed"
+            else:
+                reason = "Failed across all proxies"
+
+            _dat = _fn_l()
+            _dat[_dyn_key][_k] = {
+                _cookie_key: _dyn_cookie,
+                "updated_at": _get_ist_time(),
+                "success": False,
+                "reason": reason
+            }
+            _dat[_flags_key][_k][_done_key] = "NO"
+            _fn_s(_dat)
+            print(f"-> Endpoint {_k} failed across all {_total_pool_size} proxies. Reason: {reason}")
         else:
-            print(f"-> Endpoint {_k} failed across all {_total_pool_size} proxies. Proceeding to next target...")
+            print(f"-> Endpoint {_k} resolved successfully after testing {_attempted}/{_total_pool_size} proxies.")
             
     _updated_dat = _fn_l()
     _fn_n(_updated_dat)
