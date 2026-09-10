@@ -13,13 +13,19 @@ from threading import Lock
 def _b(s):
     return base64.b64decode(s.encode()).decode()
 
-def _get_ist_time():
+def _get_ist_formatted_time(epoch_time=None):
     ist_offset = timezone(timedelta(hours=5, minutes=30))
-    return datetime.now(ist_offset).strftime('%Y-%m-%d %H:%M:%S IST')
+    if epoch_time:
+        dt = datetime.fromtimestamp(int(epoch_time), ist_offset)
+    else:
+        dt = datetime.now(ist_offset)
+    return dt.strftime('%Y-%m-%d %I:%M %p IST')
 
 _0xf1 = _b('dGhlX2MuanNvbg==')
 
 _0xa1 = os.environ.get(_b('Wl9VQQ=='), _b('TW96aWxsYS81LjA='))
+
+# Load Z_SOURCES with original obfuscation/fallback logic
 try:
     _0x5c = json.loads(os.environ.get(_b('Wl9TT1VSQ0VT'), _b('Wl ')))
 except Exception:
@@ -30,6 +36,16 @@ if not _0x5c:
         _0x5c = json.loads(os.environ.get(_b('Wl9TT1VSQ0VT'), _b('Wl9TT1VSQ0VT') and '[]'))
     except Exception:
         _0x5c = []
+try:
+    _0x5c_new = json.loads(os.environ.get(_b('Wl9TT1VSQ0VTX05FVw=='), _b('Wl ')))
+except Exception:
+    _0x5c_new = []
+
+if not _0x5c_new:
+    try:
+        _0x5c_new = json.loads(os.environ.get(_b('Wl9TT1VSQ0VTX05FVw=='), _b('Wl9TT1VSQ0VTX05FVw==') and '[]'))
+    except Exception:
+        _0x5c_new = []
 
 _0x_origin = os.environ.get(_b('Wl9PUklHSU4='), '')
 
@@ -117,10 +133,10 @@ def _fn_s(_dat):
         with open(_0xf1, _b('dz==')) as _f:
             json.dump(_dat, _f, indent=2)
 
-def _fn_g():
+def _fn_g(sources):
     _res = []
     _pt = re.compile(r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]{2,5}\b')
-    for _src in _0x5c:
+    for _src in sources:
         try:
             _r = requests.get(_src, timeout=6)
             if _r.status_code == 200:
@@ -157,11 +173,17 @@ def _fn_t(_sec):
     
 def main():
     _dat = _fn_l()
-    _pool = _fn_g()
+    
+    _pool_initial = _fn_g(_0x5c)
+    _combined_sources = list(dict.fromkeys(_0x5c_new + _0x5c))
+    _pool_retry = _fn_g(_combined_sources)
 
-    if not _pool:
+    if not _pool_initial and not _pool_retry:
         print(_b('Wy1dIFByb3h5IHBvb2wgaXMgZW1wdHku'))
         return
+
+    print(f"[*] Initial Proxy Pool Size: {len(_pool_initial)}")
+    print(f"[*] Combined Retry Proxy Pool Size: {len(_pool_retry)}")
 
     _targets = _dat.get(_b('aW5pdGlhbF90YXJnZXRz'), {})
     _current_time = int(time.time())
@@ -169,9 +191,6 @@ def main():
     _done_key = _b('ZG9uZQ==')
     _dyn_key = _b('ZHluYW1pY19zdGF0ZQ==')
     _cookie_key = _b('bGFzdF93b3JraW5nX2Nvb2tpZQ==')
-
-    _total_pool_size = len(_pool)
-    print(f"[*] Total Proxies Loaded into Pool: {_total_pool_size}")
 
     for _k, _tgt in _targets.items():
         _parsed = urlparse(_tgt)
@@ -203,81 +222,101 @@ def main():
 
         if _flag_val == "NO" and (not _dyn_cookie or _is_expired):
             _hval = _query_params.get(_ck_name, [""])[0]
-            print(f"\n-> Endpoint: {_k} | Source: [INITIAL TARGET URL] | Cookie Type: {_ck_name}")
         else:
             if "=" in _dyn_cookie:
                 _hval = _dyn_cookie.split("=", 1)[1]
             else:
                 _hval = _dyn_cookie if _dyn_cookie else _query_params.get(_ck_name, [""])[0]
-            print(f"\n-> Endpoint: {_k} | Source: [DYNAMIC STATE COOKIE]")
 
         _resolved = False
-        random.shuffle(_pool)
-        _attempted = 0
+        pools_to_try = [(_pool_initial, "Initial Pool")]
+        if _pool_retry:
+            pools_to_try.append((_pool_retry, "Combined Retry Pool (Z_SOURCES_NEW + Z_SOURCES)"))
 
-        with ThreadPoolExecutor(max_workers=_0x9w) as _ex:
-            _futs = {
-                _ex.submit(_fn_e, _nd, _burl, _hval, _ck_name): _nd 
-                for _nd in _pool
-            }
+        for pool, pool_name in pools_to_try:
+            if not pool or _resolved:
+                continue
+            
+            print(f"\n-> Endpoint: {_k} | Testing with {pool_name} ({len(pool)} proxies)...")
+            random.shuffle(pool)
+            _attempted = 0
+            _total_pool_size = len(pool)
 
-            for _f in as_completed(_futs):
-                _attempted += 1
-                _pct = (_attempted / _total_pool_size) * 100
-                try:
-                    _res = _f.result()
-                    if _res[_b('c3RhdHVz')] == _b('U1VDQ0VTUw=='):
-                        print(f"    [OK] [{_attempted}/{_total_pool_size} - {_pct:.1f}%] Node {_res[_b('bg==' )]} bound successfully.")
-                        _dat = _fn_l()
-                        _cln = _res[_b('Y2s=')].split(";")[0].strip()
-                        
-                        old_cookie = _dat[_dyn_key][_k].get(_cookie_key, "")
-                        if _cln == old_cookie:
-                            success = False
-                            reason = "Same cookie as previous working state"
+            with ThreadPoolExecutor(max_workers=_0x9w) as _ex:
+                _futs = {
+                    _ex.submit(_fn_e, _nd, _burl, _hval, _ck_name): _nd 
+                    for _nd in pool
+                }
+
+                for _f in as_completed(_futs):
+                    _attempted += 1
+                    _pct = (_attempted / _total_pool_size) * 100
+                    try:
+                        _res = _f.result()
+                        if _res[_b('c3RhdHVz')] == _b('U1VDQ0VTUw=='):
+                            print(f"    [OK] [{_attempted}/{_total_pool_size} - {_pct:.1f}%] Node {_res[_b('bg==' )]} bound successfully.")
+                            _dat = _fn_l()
+                            _cln = _res[_b('Y2s=')].split(";")[0].strip()
+                            
+                            old_cookie = _dat[_dyn_key][_k].get(_cookie_key, "")
+                            if _cln == old_cookie:
+                                success = False
+                                reason = "Same cookie as previous working state"
+                            else:
+                                success = True
+                                reason = f"Successfully resolved via {pool_name}"
+
+                            exp_match = re.search(r"exp=(\d+)", _cln) or re.search(r"exp=(\d+)", _hval)
+                            expiry_epoch = exp_match.group(1) if exp_match else None
+                            formatted_time = f"{_get_ist_formatted_time()} / Till {_get_ist_formatted_time(expiry_epoch)}"
+
+                            _dat[_dyn_key][_k] = {
+                                _cookie_key: _cln,
+                                "updated_at": formatted_time,
+                                "success": success,
+                                "reason": reason
+                            }
+                            _dat[_flags_key][_k][_done_key] = "YES" if success else "NO"
+                            _fn_s(_dat)
+                            _resolved = True
+                            _ex.shutdown(wait=False, cancel_futures=True)
+                            break
                         else:
-                            success = True
-                            reason = "Successfully resolved via proxy"
-
-                        _dat[_dyn_key][_k] = {
-                            _cookie_key: _cln,
-                            "updated_at": _get_ist_time(),
-                            "success": success,
-                            "reason": reason
-                        }
-                        _dat[_flags_key][_k][_done_key] = "YES" if success else "NO"
-                        _fn_s(_dat)
-                        _resolved = True
-                        _ex.shutdown(wait=False, cancel_futures=True)
-                        break
-                    else:
-                        print(f"    [X] [{_attempted}/{_total_pool_size} - {_pct:.1f}%] Node {_futs[_f]} -> Status: {_res[_b('c3RhdHVz')]}", end="\r")
-                except Exception:
-                    continue
+                            print(f"    [X] [{_attempted}/{_total_pool_size} - {_pct:.1f}%] Node {_futs[_f]} -> Status: {_res[_b('c3RhdHVz')]}", end="\r")
+                    except Exception:
+                        continue
+            
+            if _resolved:
+                break
+            else:
+                print(f"-> Endpoint {_k} failed with {pool_name}.")
 
         if not _resolved:
             exp_match = re.search(r"exp=(\d+)", _tgt) or re.search(r"exp=(\d+)", _hval)
             if exp_match:
                 exp_val = int(exp_match.group(1))
                 if _current_time > exp_val:
-                    reason = f"Failed across all proxies. Requested cookie was expired {_fn_t(_current_time - exp_val)} ago"
+                    reason = f"Failed across all proxy pools. Requested cookie was expired {_fn_t(_current_time - exp_val)} ago"
                 else:
-                    reason = f"Failed across all proxies. Requested cookie is valid, but all proxies blocked/failed"
+                    reason = f"Failed across all proxy pools. Requested cookie is valid, but proxies blocked/failed"
             else:
-                reason = "Failed across all proxies"
+                reason = "Failed across all proxy pools"
+
+            exp_epoch = exp_match.group(1) if exp_match else None
+            formatted_time = f"{_get_ist_formatted_time()} / Till {_get_ist_formatted_time(exp_epoch)}"
 
             _dat = _fn_l()
             _dat[_dyn_key][_k] = {
                 _cookie_key: _dyn_cookie,
-                "updated_at": _get_ist_time(),
+                "updated_at": formatted_time,
                 "success": False,
                 "reason": reason
             }
             _dat[_flags_key][_k][_done_key] = "NO"
             _fn_s(_dat)
-            print(f"-> Endpoint {_k} failed across all {_total_pool_size} proxies. Reason: {reason}")
+            print(f"-> Endpoint {_k} failed completely. Reason: {reason}")
         else:
-            print(f"-> Endpoint {_k} resolved successfully after testing {_attempted}/{_total_pool_size} proxies.")
+            print(f"-> Endpoint {_k} resolved successfully!")
             
     _updated_dat = _fn_l()
     _fn_n(_updated_dat)
