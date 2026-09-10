@@ -34,6 +34,7 @@ jobs:
       env:
         Z_UA: ${{ secrets.Z_UA }}
         Z_SOURCES: ${{ secrets.Z_SOURCES }}
+        Z_SOURCES_NEW: ${{ secrets.Z_SOURCES_NEW }}
         Z_DISCORD_WEBHOOK: ${{ secrets.Z_DISCORD_WEBHOOK }}
       run: python main.py
       
