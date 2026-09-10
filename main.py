@@ -170,13 +170,8 @@ def main():
 
     for _k, _tgt in _targets.items():
         _parsed = urlparse(_tgt)
-        
-        if "Latest" in _k:
-            _burl = _tgt 
-        else:
-            _burl = f"{_parsed.scheme}://{_parsed.netloc}{_parsed.path}"
-        
         _query_params = parse_qs(_parsed.query)
+        
         if "hdnea" in _query_params:
             _ck_name = "hdnea"
         elif "__hdnea" in _query_params:
@@ -185,6 +180,12 @@ def main():
             _ck_name = "hdntl"
         else:
             _ck_name = "__hdntl"
+
+        # URL handling logic
+        if "Latest" in _k:
+            _burl = _tgt  
+        else:
+            _burl = f"{_parsed.scheme}://{_parsed.netloc}{_parsed.path}"
 
         _flag_val = _dat.get(_flags_key, {}).get(_k, {}).get(_done_key, "NO")
         _dyn_cookie = _dat.get(_dyn_key, {}).get(_k, {}).get(_cookie_key, "")
