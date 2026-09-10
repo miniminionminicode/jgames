@@ -124,10 +124,9 @@ def _fn_g():
             continue
     return list(dict.fromkeys(_res))
 
-def _fn_e(_node, _burl, _hval):
+def _fn_e(_node, _burl, _hval, _ck_name="hdntl"):
     _prx_key = _b('aHR0cA==')
     _px = {_prx_key: f"http://{_node}", _b('aHR0cHM=='): f"http://{_node}"}
-    _ck_name = _b('aGRudGw=')
     _cks = {_ck_name: _hval} if _hval else {}
     try:
         with requests.Session() as _sess:
@@ -165,15 +164,28 @@ def main():
     _done_key = _b('ZG9uZQ==')
     _dyn_key = _b('ZHluYW1pY19zdGF0ZQ==')
     _cookie_key = _b('bGFzdF93b3JraW5nX2Nvb2tpZQ==')
-    _param_key = _b('X19oZG50bA==')
 
     _total_pool_size = len(_pool)
     print(f"[*] Total Proxies Loaded into Pool: {_total_pool_size}")
 
     for _k, _tgt in _targets.items():
         _parsed = urlparse(_tgt)
-        _burl = f"{_parsed.scheme}://{_parsed.netloc}{_parsed.path}"
         
+        if "Latest" in _k:
+            _burl = _tgt 
+        else:
+            _burl = f"{_parsed.scheme}://{_parsed.netloc}{_parsed.path}"
+        
+        _query_params = parse_qs(_parsed.query)
+        if "hdnea" in _query_params:
+            _ck_name = "hdnea"
+        elif "__hdnea" in _query_params:
+            _ck_name = "__hdnea"
+        elif "hdntl" in _query_params:
+            _ck_name = "hdntl"
+        else:
+            _ck_name = "__hdntl"
+
         _flag_val = _dat.get(_flags_key, {}).get(_k, {}).get(_done_key, "NO")
         _dyn_cookie = _dat.get(_dyn_key, {}).get(_k, {}).get(_cookie_key, "")
         
@@ -185,13 +197,13 @@ def main():
                 _is_expired = False
 
         if _flag_val == "NO" and (not _dyn_cookie or _is_expired):
-            _hval = parse_qs(_parsed.query).get(_param_key, [""])[0]
-            print(f"\n-> Endpoint: {_k} | Source: [INITIAL TARGET URL]")
+            _hval = _query_params.get(_ck_name, [""])[0]
+            print(f"\n-> Endpoint: {_k} | Source: [INITIAL TARGET URL] | Cookie Type: {_ck_name}")
         else:
             if "=" in _dyn_cookie:
                 _hval = _dyn_cookie.split("=", 1)[1]
             else:
-                _hval = _dyn_cookie if _dyn_cookie else parse_qs(_parsed.query).get(_param_key, [""])[0]
+                _hval = _dyn_cookie if _dyn_cookie else _query_params.get(_ck_name, [""])[0]
             print(f"\n-> Endpoint: {_k} | Source: [DYNAMIC STATE COOKIE]")
 
         _resolved = False
@@ -200,7 +212,7 @@ def main():
 
         with ThreadPoolExecutor(max_workers=_0x9w) as _ex:
             _futs = {
-                _ex.submit(_fn_e, _nd, _burl, _hval): _nd 
+                _ex.submit(_fn_e, _nd, _burl, _hval, _ck_name): _nd 
                 for _nd in _pool
             }
 
@@ -210,7 +222,7 @@ def main():
                 try:
                     _res = _f.result()
                     if _res[_b('c3RhdHVz')] == _b('U1VDQ0VTUw=='):
-                        print(f"   [OK] [{_attempted}/{_total_pool_size} - {_pct:.1f}%] Node {_res[_b('bg==' )]} bound successfully.")
+                        print(f"    [OK] [{_attempted}/{_total_pool_size} - {_pct:.1f}%] Node {_res[_b('bg==' )]} bound successfully.")
                         _dat = _fn_l()
                         _cln = _res[_b('Y2s=')].split(";")[0].strip()
 
@@ -224,7 +236,7 @@ def main():
                         _ex.shutdown(wait=False, cancel_futures=True)
                         break
                     else:
-                        print(f"   [X] [{_attempted}/{_total_pool_size} - {_pct:.1f}%] Node {_futs[_f]} -> Status: {_res[_b('c3RhdHVz')]}", end="\r")
+                        print(f"    [X] [{_attempted}/{_total_pool_size} - {_pct:.1f}%] Node {_futs[_f]} -> Status: {_res[_b('c3RhdHVz')]}", end="\r")
                 except Exception:
                     continue
 
@@ -232,7 +244,9 @@ def main():
             print(f"-> Endpoint {_k} resolved successfully after testing {_attempted}/{_total_pool_size} proxies ({(_attempted/_total_pool_size)*100:.1f}%).")
         else:
             print(f"-> Endpoint {_k} failed across all {_total_pool_size} proxies. Proceeding to next target...")
+            
     _updated_dat = _fn_l()
     _fn_n(_updated_dat)
+
 if __name__ == "__main__":
     main()
